@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <script src="js/phaser.min.js"></script>
+  <style>
+    body{
+      margin : 0
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // 生成配置
+    const config = {
+      type : Phaser.AUTO,
+      width : 800,
+      height : 600,
+      physics : {
+        default : 'arcade',
+        arcade : {
+          gravity : {y : 300},
+          debug : false
+        }
+      },
+      scene : {
+        preload,
+        create,
+        update
+      }
+    }
+
+    // 生成游戏主体
+    let game = new Phaser.Game(config)
+    // 生成玩家
+    let player
+    //　生成平台
+    let platforms
+    // 生成指针
+    let cursors
+    // 计分器
+    let score = 0
+    // 计分文本
+    let scoreText
+    //创造炸弹
+    let bombs
+    //创造gameover条件
+    let gameover = false
+
+    function preload()
+    {
+      // 加载背景图片
+      this.load.image("sky","./tutorio/assets/sky.png")
+      this.load.image("bomb","./tutorio/assets/bomb.png")
+      this.load.image("ground","./tutorio/assets/platform.png")
+      this.load.image("star","./tutorio/assets/star.png")
+      this.load.spritesheet("dude","./tutorio/assets/dude.png",{frameWidth:32,frameHeight:48})
+    }
+
+    function create(){
+
+      this.add.image(400,300,'sky')
+
+      platforms = this.physics.add.staticGroup()
+
+      platforms.create(400, 568,'ground').setScale(2).refreshBody()
+      // create(x,y,imagename)
+      // 其中ｘ,y设为０的时候，以图片中心作为原点，显示在左上方
+      platforms.create(600, 400, 'ground')
+      platforms.create(50, 250, 'ground')
+      platforms.create(750, 220, 'ground');
+
+      //生成玩家
+      player = this.physics.add.sprite(100,450,'dude')
+
+      player.setBounce(0.2)
+      player.setCollideWorldBounds(true)
+
+      //初始化键位绑定（光这样还不能用，在update中检测并更新！）
+      this.anims.create({
+        key : 'left',
+        frames : this.anims.generateFrameNumbers('dude',{start : 0,end : 3}),
+        frameRate : 10,
+        repeat : -1
+      })
+
+      this.anims.create({
+        key : "turn",
+        frames: [ { key: 'dude', frame: 4 } ],
+        frameRate : 20
+      })
+
+      this.anims.create({
+        key : "right",
+        frames : this.anims.generateFrameNumbers('dude',{start : 5,end : 8}),
+        frameRate : 10,
+        repeat : -1
+      })
+      //这里是初始化cursors:热键
+      cursors = this.input.keyboard.createCursorKeys()
+
+      //早苗教你画星星
+      stars = this.physics.add.group({
+        key : "star",
+        repeat : 11,
+        setXY : {x: 12, y: 0, stepX:70}
+      })
+
+      stars.children.iterate(function (child){
+        //为每一颗星星加上碰撞函数
+        child.setBounceY(Phaser.Math.FloatBetween(0.4,0.8))
+      })
+
+      bombs =  this.physics.add.group()
+      //初始化计分器
+      scoreText = this.add.text(16,16,"score 0",{fontSize : '32px',fill : "#000"})
+      //这里是把该物体绑定到游戏平台上去
+      this.physics.add.collider(player,platforms)
+      this.physics.add.collider(stars,platforms)
+      this.physics.add.collider(bombs,platforms)
+      //内置了碰撞函数
+      this.physics.add.overlap(player, stars, collectStar, null, this)
+
+      this.physics.add.collider(player,bombs,hitBomb,null,this)
+    }
+
+    function update ()
+      {
+        if(gameover)
+        {
+          return;
+        }
+        if (cursors.left.isDown)
+        {
+            player.setVelocityX(-160);
+
+            player.anims.play('left', true);
+        }
+        else if (cursors.right.isDown)
+        {
+            player.setVelocityX(160);
+
+            player.anims.play('right', true);
+        }
+        else
+        {
+            player.setVelocityX(0);
+
+            player.anims.play('turn');
+        }
+
+        if (cursors.up.isDown && player.body.touching.down)
+        {
+            player.setVelocityY(-330);
+        }
+    }
+    function collectStar(player,star){
+      //这里删除实体
+      star.disableBody(true,true)
+
+      score += 1000
+      scoreText.setText('Score : '+score)
+      if(stars.countActive(true) === 0)
+      {
+        stars.children.iterate(function(child){
+        //这里激活每一个小星星的实体
+          child.enableBody(true,child.x,0,true,true)
+
+        })
+        //判断玩家在哪边，记录另外一边的一个位置
+        var x = (player.x < 400) ? Phaser.Math.Between(400,800) : Phaser.Math.Between(0,400)
+
+        var bomb = bombs.create(x,16,'bomb')
+        bomb.setBounce(1)
+        bomb.setCollideWorldBounds(true)
+        bomb.setVelocity(Phaser.Math.Between(-200,200),20)
+        bomb.allowGravity = false
+      }
+    }
+    function hitBomb()
+    {
+      this.physics.pause()
+
+      player.setTint(0x00ff00)
+
+      player.anims.play("turn")
+
+      gameover = true
+    }
+  </script>
+</body>
+</html>
