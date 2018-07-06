@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <script src="js/phaser.js"></script>
+</head>
+<body>
+  <script>
+    let game,knifeGroup,scoreText,score
+    let gameOptions = {
+      rotateSpeed : 5,
+      throwSpeed : 150,
+      minAngle : 10
+    }
+    window.onload = function(){
+      game = new Phaser.Game({
+        type: Phaser.CANVAS,
+        width: 600,
+        height: 700,
+        backgroundColor: 0xdddddd,
+        scene: [playGame]
+      })
+    }
+    class playGame extends Phaser.Scene{
+      constructor(){
+        super("playGame")
+      }
+
+      preload(){
+        this.load.image("target","image/target.png")
+        this.load.image("knife","image/knife.png")
+      }
+
+      create(){
+        this.target = this.add.image(game.config.width/2,game.config.height/5 *2,"target").setScale(0.5,0.5)
+        this.target.depth = 1
+        this.knife = this.add.image(game.config.width/2,game.config.height/5*4,"knife").setScale(0.5,0.5)
+        this.knifeGroup = this.add.group()
+        console.log(this)
+        this.canThrow = true
+        this.input.on("pointerdown",this.throwKnife,this)
+        score = 0
+        scoreText = this.add.text(16,16,"score:0",{fontSize:"32px",fill:"#000"})
+      }
+
+      update(){
+        this.target.angle += gameOptions.rotateSpeed
+        let children = this.knifeGroup.getChildren()
+        for(var i=0;i< children.length;i++){
+          let child = children[i]
+          child.angle += gameOptions.rotateSpeed
+          let ang = Phaser.Math.DegToRad(child.angle)
+          child.x = this.target.x - Math.sin(ang) * this.target.width/4
+          child.y = this.target.y + Math.cos(ang) * this.target.width/4
+        }
+      }
+
+      throwKnife(){
+        if(!this.canThrow){
+          return
+        }
+        this.canThrow = false
+        this.tweens.add({
+          targets: [this.knife],
+          y: this.target.y+this.knife.height/8 * 3,
+          duration: gameOptions.throwSpeed,
+          callbackScope: this,
+          onComplete: function(tween){
+            let isLegal = true
+            let children = this.knifeGroup.getChildren()
+            for(var i=0;i<children.length;i++){
+              let child = children[i]
+              if(Math.abs(Phaser.Math.Angle.ShortestBetween(this.target.angle,child.impactAngle))<gameOptions.minAngle){
+                isLegal = false
+                break
+              }
+            }
+            if(isLegal){
+              this.canThrow =  true
+              let newKnife = this.add.image(this.target.x,this.target.y+this.knife.height/8 * 3,"knife").setScale(0.5,0.5)
+              newKnife.impactAngle = this.target.angle
+              this.knifeGroup.add(newKnife)
+              this.knife.y = game.config.height/5 * 4
+              score += 100
+              scoreText.setText("score:" +score)
+            }
+            else{
+              this.tweens.add({
+                targets: [this.knife],
+                y: game.config.height+this.knife.height,
+                rotation: 5,
+                duration: gameOptions.throwSpeed*4,
+                callbackScope: this,
+                onComplete(tween){
+                  this.scene.start("playGame")
+                }
+              })
+            }
+
+          },
+        })
+      }
+    }
+  </script>
+</body>
+</html>
